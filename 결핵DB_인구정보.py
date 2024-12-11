@@ -26,6 +26,7 @@ for measure, values in physical.items():
 
 # 체중, 키, BMI 추출
 # 결핵 진단일 이전의 가장 빠른 검사일자 추출
+# 실시일시가 빈칸인 값(원인 파악 및 개선 필요)
 measure_physical = pd.merge(measurement, condition_A31, on= "person_id", how= 'left')
 measure_physical = measure_physical[["person_id", "NTM진단일", "measurement_concept_id", "measurement_source_value_name", "measurement_date", "실시일시", "value_source_value"]]
 
