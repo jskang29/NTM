@@ -1,9 +1,17 @@
 import pandas as pd             # 완성된 데이터 셋을 만들자!
                                 # 진단일 이전의 가장 최근 날짜를 가져오게 수정 필요
 # 
-person = pd.read_csv("C:\\Users\\JBCP_01\\Desktop\\CDM_sample\\V2_20241211\\person.csv")
-measurement = pd.read_csv("C:\\Users\\JBCP_01\\Desktop\\CDM_sample\\V2_20241211\\measurement.csv")
-condition_A31 = pd.read_csv("C:\\Users\\JBCP_01\\Desktop\\DB_sample\\기저질환.csv")
+person = pd.read_csv("C:\\Users\\JBCP_01\\Desktop\\CDM\\CDM_csv\\CDM_A31_regtime추가\\person.csv")              # person 테이블 로드
+# measurement = pd.read_csv("C:\\Users\\JBCP_01\\Desktop\\CDM\\CDM_csv\\CDM_A31_regtime추가\\measurement.csv")    # measurement 테이블 로드
+condition_A31 = pd.read_csv("C:\\Users\\JBCP_01\\Desktop\\DB_sample\\증상_기저질환.csv") 
+
+# 메모리 부족으로 인한 chunk 단위로 measurement 로드
+chunksize = 100000 
+chunk_list = [] 
+for chunk in pd.read_csv("C:\\Users\\JBCP_01\\Desktop\\CDM\\CDM_csv\\CDM_A31_regtime추가\\measurement.csv", chunksize=chunksize):
+    chunk_list.append(chunk)
+
+measurement = pd.concat(chunk_list, ignore_index=True)
 
 # person, measurement, condition_A31 전처리
 person = person[["person_id", "gender_source_value"]]
@@ -26,10 +34,14 @@ for measure, values in physical.items():
 
 # 체중, 키, BMI 추출
 # 결핵 진단일 이전의 가장 빠른 검사일자 추출
-# 실시일시가 빈칸인 값(원인 파악 및 개선 필요)
+# 실시일시가 빈칸인 값(???)
 measure_physical = pd.merge(measurement, condition_A31, on= "person_id", how= 'left')
 measure_physical = measure_physical[["person_id", "NTM진단일", "measurement_concept_id", "measurement_source_value_name", "measurement_date", "실시일시", "value_source_value"]]
 
+measure_A31 = condition_A31
+
+# NTM진단일과 가장 가까운 신체계측 날짜
+# 1. NTM진단일 이전 신체계측 날짜
 for measure in physical:
     measure_physical = measure_physical[measure_physical["measurement_date"] <= measure_physical["NTM진단일"]]
 
@@ -45,11 +57,12 @@ for measure in physical:
     temp_df = temp_df[["person_id", measure["검사명"], measure["검사결과"]]] # "measurement_source_value_name", "measurement_date"
     
     # 원래 데이터프레임과 병합
-    condition_A31_pre = pd.merge(condition_A31, temp_df, on="person_id", how="left")
+    measure_A31 = pd.merge(measure_A31, temp_df, on="person_id", how="left")
 
 
+# 2. NTM진단일 이후 신체계측 날짜
 for measure in physical:
-    measure_physical = measure_physical[measure_physical["measurement_date"] >= measure_physical["NTM진단일"]]
+    measure_physical = measure_physical[measure_physical["measurement_date"] > measure_physical["NTM진단일"]]
 
     temp_df = measure_physical[
         measure_physical["measurement_concept_id"].str.startswith(tuple(measure["검사코드"]), na=False)
@@ -63,12 +76,14 @@ for measure in physical:
     temp_df = temp_df[["person_id", measure["검사명"], measure["검사결과"]]] # "measurement_source_value_name", "measurement_date"
     
     # 원래 데이터프레임과 병합
-    condition_A31_post = pd.merge(condition_A31, temp_df, on="person_id", how="left")
+    measure_A31 = pd.merge(measure_A31, temp_df, on= "person_id", how="left")
 
-condition_A31 = pd.merge(condition_A31_pre, condition_A31_post, on= ["person_id", "NTM진단일"], how= 'left')
+
+# measure_A31 = measure_A31[["person_id", "체중kg_x", "신장cm_x", "bmi_x"]]
+
 
 
 
 # measure_physical.to_csv("C:\\Users\JBCP_01\\Desktop\\DB_sample\\physical.csv", index=False)
-condition_A31.to_csv("C:\\Users\JBCP_01\\Desktop\\DB_sample\\WHB.csv", index=False)
+measure_A31.to_csv("C:\\Users\JBCP_01\\Desktop\\DB_sample\\신체계측.csv", index=False)
 
