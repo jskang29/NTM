@@ -106,9 +106,9 @@ def check_keyword(ct_report, keyword, negative_phrases=NEGATIVE_PHRASES):
     for sentence in matched_sentences:
         # 문장에 negative_phrases 중 하나라도 들어 있으면 "N"
         if any(neg in sentence for neg in negative_phrases):
-            return "N"
+            return pd.NA
     # 한 번도 부정 표현을 만나지 않았다면 "Y" 반환
-    return "Y"
+    return ct_report
 
 
 
