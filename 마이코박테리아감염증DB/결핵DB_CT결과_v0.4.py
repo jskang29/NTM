@@ -4,8 +4,8 @@ import re
 # --------------------------------------------------------------------------------
 # 1. 데이터 불러오기
 # --------------------------------------------------------------------------------
-procedure = pd.read_csv("C:\\Users\\JBCP_01\\Desktop\\CDM\\CDM_csv\\CDM_A31_old\\CDM_A31_전체\\procedure_occurrence.csv")
-condition_occurrence = pd.read_csv("C:\\Users\\JBCP_01\\Desktop\\CDM\\CDM_csv\\CDM_A31_regtime추가\\condition_occurrence(regtime추가).csv")
+procedure = pd.read_csv("C:\\Users\\내컴퓨터\\Desktop\\결핵_CDM\\CDM_전체\\NTM_A31\\procedure_occurrence.csv")
+condition_occurrence = pd.read_csv("C:\\Users\\내컴퓨터\\Desktop\\결핵_CDM\\CDM_전체\\NTM_A31\\condition_occurrence.csv")
 # condition_A31 = pd.read_csv("C:\\Users\\JBCP_01\\Desktop\\DB_sample\\증상_기저질환_기존.csv")
 condition_occurrence = condition_occurrence[["person_id", "condition_start_date", "condition_source_value"]]
 
@@ -95,12 +95,12 @@ for key in CT_result:
     # condition_A31와 병합
     condition_A31 = pd.merge(condition_A31, temp_df, on="person_id", how="left")
 
-condition_A31.to_csv("C:\\Users\\JBCP_01\\Desktop\\DB_sample\\CT_CT_2.csv", index=False)
 
 # --------------------------------------------------------------------------------
 # 4. 부정 표현 처리: "no", "보이지 않음", "소실" 등이 포함되면 NA로
 # --------------------------------------------------------------------------------
 NEGATIVE_PHRASES = ["no", "보이지 않음", "사라졌음", "소실", "없음"]
+VARIABLE = ["변화", "차이", "change", "changes"]
 
 def check_keyword(ct_report, keyword, negative_phrases=NEGATIVE_PHRASES):
     """
@@ -118,10 +118,58 @@ def check_keyword(ct_report, keyword, negative_phrases=NEGATIVE_PHRASES):
         keyword_list = [keyword]
     else:
         keyword_list = keyword
-
+    '''
     # 문장 단위로 분리
-    sentences = [s.strip() for s in re.split(r'[.!?]', ct_report)]
+    sentences = [s.strip() for s in re.split(r'[.!?-]', ct_report) if s.strip()]
+    '''
+
+    # 줄바꿈을 기준으로 문장 분리
+    sentences = ct_report.split('\n')
+
+    # 빈 문장 제거
+    sentences = [sentence.strip() for sentence in sentences if sentence.strip()]    # .strip(): 문장 앞뒤의 공백을 제거하는 함수
+
+    # keyword가 들어있는 문장만 필터링(셀값(ct소견)에 keyword를 1개라도 포함하는 문장은 모두 matched_sentences로 저장한다.)
+    matched_sentences = [sentence for sentence in sentences if any(kw.lower() in sentence.lower() for kw in keyword_list)]
     
+    # 부정적인 표현을 독립적인 단어로 감지하는 함수
+    def contains_negative_phrase(sentence, negative_phrases):
+        for neg in negative_phrases:
+            if any('가' <= ch <= '힣' for ch in neg):  # 한글 포함 여부 확인
+                if re.search(neg, sentence):  # 한글은 그대로 매칭
+                    return True
+            else:
+                if re.search(r'\b' + re.escape(neg) + r'\b', sentence):  # 영어는 단어 경계 적용
+                    return True
+        
+        return False
+    
+    # `matched_sentences` 내에서 부정어 검사 실행
+    negative_found = any(contains_negative_phrase(sentence, negative_phrases) for sentence in matched_sentences)
+
+    # 최종 결정 (부정어 포함 여부 확인 후 처리)
+    if negative_found:
+        if any(any(var in sentence for var in VARIABLE) for sentence in matched_sentences): # any: 1개라도 true이면 true를 반환
+            return ct_report  # 예외 처리된 키워드 포함 → 원본 유지
+        else:   
+            return pd.NA  # 부정어 포함된 문장이 있으면 NA 변환
+
+    '''
+    # 부정적인 표현이 포함된 문장 중 Variable 키워드가 있는 경우 결과 소견 반환
+    for sentence in matched_sentences:
+        if contains_negative_phrase(sentence, negative_phrases):
+            if any(var in sentence for var in VARIABLE):
+                return ct_report
+            else:
+                return pd.NA
+    '''
+    return ct_report
+
+    
+
+# condition_A31.to_csv("C:\\Users\\내컴퓨터\\Desktop\\결핵_DB\\DB구축코드\\결핵_DB\\CT_부정어구_수정_v0.3.csv", index=False)
+
+'''
     # keyword가 들어있는 문장만 필터링
     matched_sentences = []
     for sentence in sentences:
@@ -136,7 +184,7 @@ def check_keyword(ct_report, keyword, negative_phrases=NEGATIVE_PHRASES):
 
     # 부정 표현이 없다면 원본 텍스트를 반환
     return ct_report
-
+'''
 
 # --------------------------------------------------------------------------------
 # 5. check_keyword 적용 + 최종적으로 "Y"/"N" 변환
@@ -163,7 +211,7 @@ condition_A31["Aggravation유무"] = condition_A31["Aggravation유무"].apply(
     lambda x: check_keyword(x, "aggravation")
 )
 
-condition_A31.to_csv("C:\\Users\\JBCP_01\\Desktop\\DB_sample\\CT_CT_2_비교.csv", index=False)
+condition_A31.to_csv("C:\\Users\\내컴퓨터\\Desktop\\결핵_DB\\DB구축코드\\결핵_DB\\CT_부정어구_v0.3.csv", index=False)
 
 
 # 최종 변환: NaN이면 "N", NaN이 아니면 "Y"
@@ -183,4 +231,4 @@ for column in [
 # --------------------------------------------------------------------------------
 # 6. 결과 저장
 # --------------------------------------------------------------------------------
-# condition_A31.to_csv("C:\\Users\\JBCP_01\\Desktop\\DB_sample\\CT_CT_2.csv", index=False)
+# condition_A31.to_csv("C:\\\\Users\\\\JBCP_01\\\\Desktop\\\\DB_sample\\\\CT_CT_2.csv", index=False)
