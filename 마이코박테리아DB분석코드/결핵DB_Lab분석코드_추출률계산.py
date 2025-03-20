@@ -15,9 +15,6 @@ measurement_after_1M = measurement_after[
 ]
 
 # 항목별 환자 수 계산
-patient_count_per_test = measurement_after_1M.groupby('measurement_source_value')['person_id'].nunique()
-
-# 항목별 환자 수 계산
 patient_count_per_test_1M = measurement_after_1M.groupby('measurement_source_value')['person_id'].nunique().reset_index()
 patient_count_per_test_1M.rename(columns={'person_id': 'patient_count'}, inplace=True)
 
